@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:;base64,=">
+    <title>Upload Image Button</title>
+    <style>
+        body {
+            background: linear-gradient(to bottom, #3498db, #2980b9);
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        
+        .upload-btn-wrapper .btn {
+            border: 2px solid gray;
+            color: gray;
+            background-color: white;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .upload-btn-wrapper input[type="file"] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+        }
+        .combo-box-container {
+            position: relative;
+            display: inline-block;
+            margin-right: 20px;
+            color: #000409;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            font-weight: bold; 
+        }
+
+        #combo-box {
+            width: 100px; /* Adjust the width as needed */
+            height: 40px; /* Adjust the height as needed */
+        }
+
+    </style>
+</head>
+<body>
+    <form action="/image" enctype="multipart/form-data" method="post">
+        <div class="combo-box-container">
+            <label for="combo-box">Patch-Size:</label>
+            <select id="combo-box" name="patch_size">
+                <option value="2000x2000">2000x2000</option>
+                <option value="1500x1500">1500x1500</option>
+                <option value="1024x1024">1024x1024</option>
+                <option value="512x512">512x512</option>
+            </select>
+        </div>
+        <div class="upload-btn-wrapper">
+            <button class="btn"
+                onclick="document.getElementById('image').click()">
+                Upload an Image
+            </button>
+            <input type="file"
+                name="file"
+                id="image"
+                accept="image/*" 
+                onchange="this.form.submit()">
+        </div>
+    </form>
+    </div>
+</body>
+
+</html>
+
+
+
+

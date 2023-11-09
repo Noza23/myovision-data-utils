@@ -1,0 +1,65 @@
+body {
+    background: linear-gradient(to bottom, #3498db, #2980b9);
+    font-family: Arial, sans-serif;
+    height: 150vh;
+}
+
+/* Image container */
+.image-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.image {
+    margin-right: 20px;
+    width: 512px;
+    height: 512px;
+}
+
+/* Title */
+.image-title {
+    font-weight: bold;
+    font-size: 16px;
+    color: rgb(136, 15, 15);
+}
+
+/* Button container */
+.button-container {
+    text-align: center;
+}
+
+.button {
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer; 
+}
+
+
+/* patch-buttons container */
+.patch-buttons-container {
+    display: flex;
+    justify-content: space-between;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #f0f0f0;
+    padding: 10px;
+}
+/* patch-buttons */
+.patch-button {
+    padding: 10px 20px;
+    background-color: #ff8400;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}

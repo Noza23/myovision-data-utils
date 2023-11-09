@@ -1,0 +1,6 @@
+fastapi[all]
+opencv-python
+torch
+segment-anything @ git+https://github.com/facebookresearch/segment-anything.git
+pyngrok
+nest_asyncio

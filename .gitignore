@@ -8,7 +8,7 @@ __pycache__/
 exp.ipynb
 
 # models
-model/*
+model/*.pth
 
 # Mac DS_Store
 .DS_Store

@@ -1,11 +1,14 @@
 import numpy as np
 import torch
 import io
+from typing import Union
 from .utils import (
     split_image_into_patches,
     enhance_contrast_bgr,
     gamma_correction,
-    decode_image
+    decode_image,
+    convert_to_hsl,
+    preprocess_image
 )
 from segment_anything import SamAutomaticMaskGenerator
 from . import state
@@ -19,13 +22,26 @@ class Image:
         patch_height: int
     ):
         self.image_name = image_name
+        self.patch_width = patch_width
+        self.patch_height = patch_height
         self.current_mask_value = 1
+        # Default preprocessing parameters
+        self.preprocess_params = {
+            "gamma": 0.4,
+            "enhance_contrast": True,
+            "omit_cluster": [False for _ in range(10)]
+        }
+        self.image_preprocessed: Union[np.ndarray, None] = None
+        self.grid: Union[tuple[int, int], None] = None
+        self.patches: Union[list[np.ndarray], None] = None
+        self.valid_instances: Union[dict[list[int]], None] = None
+
         self.image = decode_image(image_stream)
-        self.grid, self.patches = split_image_into_patches(
-            self.image,
-            (patch_width, patch_height)
-        )
-        self.patches = [self.preprocess_patch(patch) for patch in self.patches]
+        self.image_hsl = convert_to_hsl(self.image)
+        unique, count = np.unique(self.image_hsl[:, :, 1], return_counts=True)
+        top_10 = np.argsort(-count)[:10]
+        self.clusters, self.cluster_count = unique[top_10], count[top_10]
+        
         if state.MODEL is None:
             raise Exception("Model not loaded")
         self.mask_generator = SamAutomaticMaskGenerator(
@@ -36,14 +52,37 @@ class Image:
             crop_n_layers=1,
             min_mask_region_area=100,
         )
-        # Generating masks for each patch
-        print("Generating masks...")
-        self.masks = [self.generate_masks(patch) for patch in self.patches]
-        print("Masks generated successfully")
-        self.valid_instances: dict[list[int]] = {
-            i: [] for i in range(len(self.patches))
-        }
 
+    def compute_all_masks(self) -> None:
+        self.grid, self.patches = split_image_into_patches(
+            self.image_preprocessed,
+            (self.patch_width, self.patch_height)
+        )
+        self.valid_instances = {i: [] for i in range(len(self.patches))}
+        
+        print("Number of patches: ", len(self.patches))
+        self.masks = [self.generate_masks(patch) for patch in self.patches]   
+        print("Masks generated successfully")
+         
+    def change_params(
+        self,
+        gamma: float,
+        he: bool,
+        omit_cluster: list[int]
+    ) -> None:
+        self.preprocess_params["gamma"] = gamma
+        self.preprocess_params["enhance_contrast"] = he
+        self.preprocess_params["omit_cluster"] = omit_cluster
+    
+    def perform_preprocessing(self) -> None:
+        self.image_preprocessed = preprocess_image(
+            self.image.copy(),
+            self.image_hsl,
+            self.clusters[self.preprocess_params["omit_cluster"]],
+            gamma=self.preprocess_params["gamma"],
+            clahe=self.preprocess_params["enhance_contrast"],
+        )
+    
     def preprocess_patch(self, patch: np.ndarray) -> np.ndarray:
         patch_processed = enhance_contrast_bgr(gamma_correction(patch, 0.4))
         return patch_processed
@@ -81,7 +120,7 @@ class Image:
             self.current_mask_value += 1
         if len(valid_instances_lst) == 0:
             return np.zeros(self.masks[patch_id][0].shape, dtype=np.uint8)
-        valid_mask = np.sum(valid_instances_lst, axis=0)
+        valid_mask = np.sum(valid_instances_lst, axis=0, dtype=np.uint16)
         return valid_mask
 
 def set_image(

@@ -16,6 +16,7 @@ model/*.pth
 data/
 checkpoint/
 gui.py
+todo.txt
 
 
 # Distribution / packaging

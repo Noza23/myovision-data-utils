@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, File, UploadFile
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 import io, gc
 
@@ -36,6 +37,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 def root(request: Request):
     return templates.TemplateResponse("home.html", {"request": request})
 
+
 @app.post("/image")
 async def upload_image(request: Request, file: UploadFile = File(...)):
     # 1GB limit
@@ -55,15 +57,55 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
     _ = set_image(memory_stream, image_name, width, height)
     memory_stream.close()
     gc.collect()
+    print("Image uploaded successfully")
+    return RedirectResponse(url="/preprocessed", status_code=303)
+
+
+@app.get("/preprocessed")
+def preprocess(request: Request):
+    if not state.IMAGE:
+        return {"error": "No image uploaded"}
+    _ = state.IMAGE.perform_preprocessing()
     return templates.TemplateResponse(
         "image.html",
-        {"request": request, "image_name": image_name}
+        {
+            "request": request,
+            "image_name": state.IMAGE.image_name,
+            "image": encode_image(state.IMAGE.image),
+            "image_preprocessed": encode_image(state.IMAGE.image_preprocessed),
+            "intensity_values": state.IMAGE.clusters.tolist(),
+            "cluster_counts": state.IMAGE.cluster_count.tolist(),
+            "params": state.IMAGE.preprocess_params
+        }
     )
+
+@app.post("/update_params/{gamma}/{he}/{omit_cluster}")
+def update_params(gamma: float, he: bool, omit_cluster: str):
+    omit_cluster = map(int, list(omit_cluster))
+    omit_cluster_bool = list(map(bool, omit_cluster))
+    omit_cluster_bool.extend(
+        [False] * (len(state.IMAGE.clusters) - len(omit_cluster_bool))
+    )
+    print(omit_cluster_bool)
+    state.IMAGE.change_params(gamma, he, omit_cluster_bool)
+    return {"status": "Params updated successfully"}
+
+@app.post("/generate_masks")
+def generate_masks():
+    if not state.IMAGE:
+        return {"error": "No image uploaded"}
+    state.IMAGE.compute_all_masks()
+    return {"status": "Masks generated successfully"}
 
 @app.get("/image/patch/{patch_id}")
 def get_patch(request: Request, patch_id: int):
     if not state.IMAGE:
         return {"error": "No image uploaded"}
+    if not state.IMAGE.masks:
+        return {
+            "error": "Pre-process the image first under .../preprocessed"
+        }
+    
     n_patches = len(state.IMAGE.patches)
     if patch_id >= n_patches:
         return {
@@ -74,8 +116,6 @@ def get_patch(request: Request, patch_id: int):
         add_masks(patch, [inst], make_gray=True)
         for inst in state.IMAGE.masks[patch_id]
     ]
-    # save_mask_to_path(patch, path=f"./static/patch.png")
-    # instances = state.IMAGE.masks[patch_id]
 
     patch_url = encode_image(patch)
     instances_urls = [encode_image(inst) for inst in instances]
@@ -114,7 +154,7 @@ def save_mask():
     # reconstruct full mask
     mask = reconstruct_mask_from_patches(valid_masks, state.IMAGE.grid)
     # save mask
-    fn = state.IMAGE.image_name.split(".")[0] + "_mask.png"
+    fn = state.IMAGE.image_name.split(".")[0] + "_mask"
     _ = save_mask_to_path(mask, path=f"./result/{fn}")
     return {"status": f"Mask saved successfully at ./result/{fn}"}
 

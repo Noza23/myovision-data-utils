@@ -50,11 +50,12 @@ def reconstruct_mask_from_patches(
     if grid == (0, 0):
         return patches[0]
     n_row, n_col = grid
-    print([patch.shape for patch in patches])
     # col bind
     row_patches = []
     for i in range(n_row):
-        row_patches.append(np.concatenate(patches[i * n_col:(i + 1) * n_col], axis=1))
+        row_patches.append(
+            np.concatenate(patches[i * n_col:(i + 1) * n_col], axis=1)
+        )
     # row bind
     return np.concatenate(row_patches, axis=0)
 
@@ -62,14 +63,10 @@ def enhance_contrast_bgr(image: np.ndarray) -> np.ndarray:
     """Enhance contrast of an image in BGR color space."""
     # lab color space
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)
-    # split channels
     l_channel, a_channel, b_channel = cv2.split(lab)
-    # hist equal
     clahe = cv2.createCLAHE(clipLimit=8.0, tileGridSize=(1, 1))
     clahe_l = clahe.apply(l_channel)
-    # recombine channels
     enhanced_lab = cv2.merge([clahe_l, a_channel, b_channel])
-    # back to bgr
     enhanced_image = cv2.cvtColor(enhanced_lab, cv2.COLOR_Lab2BGR)
     return enhanced_image
 
@@ -93,6 +90,37 @@ def decode_image(image_stream: io.BytesIO) -> np.ndarray:
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
     return img
+
+def convert_to_hsl(image: np.ndarray) -> np.ndarray:
+    """Convert image to HSL color space."""
+    return cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
+
+def preprocess_image(
+    image: np.ndarray,
+    hsl_space: np.ndarray,
+    omit_cluster_values: list[int],
+    gamma: float,
+    clahe: bool,
+) -> np.ndarray:
+    """
+    Preprocesses image before generating masks.
+    Args:
+        image: image to preprocess.
+        hsl_space: image in HSL color space.
+        omit_cluster_values: list of values to omit desired clusters
+            according to HSL color space based on lightness intensity.
+        gamma: gamma value for gamma correction.
+        clahe: whether to use clahe for contrast enhancement.
+    
+    Returns:
+        preprocessed image.
+    """
+    for value in omit_cluster_values:
+        image[hsl_space[:, :, 1] == value] = (0, 0, 0)
+    if clahe:
+        return enhance_contrast_bgr(gamma_correction(image, gamma))
+    else:
+        return gamma_correction(image, gamma)
 
 def add_masks(
     patch: np.ndarray,
@@ -128,4 +156,6 @@ def add_masks(
     return masked_patch
 
 def save_mask_to_path(mask: np.ndarray, path: str) -> None:
-    cv2.imwrite(path, mask)
+
+    np.save(path + ".npy", mask)
+    cv2.imwrite(path + ".png", mask)

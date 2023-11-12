@@ -1,19 +1,210 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <style>
-        /* Body */
-        body {
-            background: linear-gradient(to bottom, #3498db, #2980b9);
-            font-family: Arial, sans-serif;
-            height: 100vh;
-        }
-    </style>
-    <title>Mask Generation Completed</title>
+    <link rel="stylesheet"
+    type="text/css"
+    href="{{ url_for('static',path='/css/styles.css') }}">
+    <title>Preprocessing Step</title>
+<style>
+    .settings-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 5px;
+        gap: 10px;
+    }
+
+    #loading-indicator {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    #loading-indicator p {
+        margin: 0;
+    }
+</style>
+
 </head>
 <body>
-    <h1>Mask Generation Completed for {{ image_name }}</h1>
-    <p>Click the button below to view the first patch:</p>
-    <a href="/image/patch/0"><button>Move to First Patch</button></a>
+    <h2>Image name: {{ image_name }}</h2>
+    <h3>Before computing masks please pre-process the image below.</h3>
+    <h3>Click <b>proceed</b> to start computing masks and move to first patch.</h3>
+
+    <div class="image-container">
+        <div>
+            <p class="image-title">Input Image</p>
+            <img class="image"
+                style="float: left;"
+                src="{{ image }}"
+                alt="Input">
+        </div>
+        <div>
+            <p class="image-title">pre-processed</p>
+            <img class="image"
+                style="float: right;"
+                src="{{ image_preprocessed }}"
+                alt="pre-processed">
+        </div>
+    </div>
+    <div class="settings-container">
+        <div id="checkboxes">
+            <label
+                for="box1">
+                Eliminate Top Lightness Clusters (HSL space)
+            </label>
+            <ul>
+                <p><input type="checkbox" id="box1"> {{ intensity_values[0] }}: {{ cluster_counts[0] }}</p>
+                <p><input type="checkbox" id="box2"> {{ intensity_values[1] }}: {{ cluster_counts[1] }}</p>
+                <p><input type="checkbox" id="box3"> {{ intensity_values[2] }}: {{ cluster_counts[2] }}</p>
+                <p><input type="checkbox" id="box4"> {{ intensity_values[3] }}: {{ cluster_counts[3] }}</p>
+                <p><input type="checkbox" id="box5"> {{ intensity_values[4] }}: {{ cluster_counts[4] }}</p>
+                <p><input type="checkbox" id="box6"> {{ intensity_values[5] }}: {{ cluster_counts[5] }}</p>
+                <p><input type="checkbox" id="box7"> {{ intensity_values[6] }}: {{ cluster_counts[6] }}</p>
+            </ul>
+        </div>
+        <div>
+            <label 
+                for="gamma"
+                style="display: block; margin-bottom: 3px">
+                Gamma correction:
+            </label>
+            <input 
+                type="number"
+                id="gamma"
+                value="{{ params['gamma'] }}" 
+                step="0.1">
+        </div>
+        <div class="combo-box-container">
+            <label 
+                for="combo-box"
+                style="display: block; margin-bottom: 3px">
+                Histogram-Equalization:
+            </label>
+            <select id="combo-box" name="equalization">
+                <option value="True">True</option>
+                <option value="False">False</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="button-container">
+        <button class="button"
+            style="background-color: #4ff436;"
+            type="submit"
+            id="apply">
+            Apply
+        </button>
+    </div>
+    <div class="patch-buttons-container">
+        <button class="patch-button"
+            id="back">
+            Back to Image-Upload
+        </button>
+        <button class="patch-button"
+            id="proceed">
+            Proceed
+        </button>
+        <div id="loading-indicator">
+            Generating Masks...
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('apply').onclick = function () {
+            updateParams();
+        }
+        document.getElementById('back').onclick = function () {
+            location.href = "/";
+        }
+
+        document.getElementById('proceed').onclick = async function () {
+            const loadingIndicator = document.getElementById(
+                'loading-indicator'
+            );
+            loadingIndicator.style.display = 'block';
+
+            try {
+                const response = await fetch(
+                    '/generate_masks',
+                    { method: 'POST' }
+                );
+
+                if (response.ok) {
+                    console.log('Masks generated successfully.');
+                } else {
+                    console.error('Failed to generate masks.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            } finally {
+                loadingIndicator.style.display = 'none';
+            }
+            location.href = '/image/patch/0'
+        }
+
+        var ticks = JSON.parse("{{ params['omit_cluster'] | tojson}}");
+        var clahe = JSON.parse("{{ params['enhance_contrast'] | tojson}}");
+        function setCheckboxTicks(ticks) {
+            var checkboxes = document.querySelectorAll(
+                '#checkboxes input[type="checkbox"]'
+            );
+            // Loop through checkboxes
+            checkboxes.forEach(function (checkbox, index) {
+                checkbox.checked = ticks[index] === true;
+            });
+        }
+        
+        function setComboTicks(clahe) {
+            var combo = document.getElementById('combo-box');
+            if (clahe === true) {
+                combo.selectedIndex = 0;
+            } else {
+                combo.selectedIndex = 1;
+            }
+        }
+        
+        async function updateParams() {
+            var checkboxes = document.querySelectorAll(
+                '#checkboxes input[type="checkbox"]'
+            );
+            var ticks = "";
+            checkboxes.forEach(function (checkbox) {
+                if (checkbox.checked) {
+                    ticks += "1";
+                } else {
+                    ticks += "0";
+                }
+            }); // array of booleans
+            var combo = document.getElementById('combo-box');
+            var clahe = combo.selectedIndex === 0; // true / false
+            var gamma = document.getElementById('gamma').value; // float
+
+            try {
+                const response = await fetch(
+                    '/update_params/' + gamma + '/' + clahe + '/' + ticks,
+                    { method: 'POST' }
+                );
+                if (response.ok) {
+                    console.log('Parameters updated successfully.');
+                } else {
+                    console.error('Failed to update parameters.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+            location.reload();
+        }
+
+        setCheckboxTicks(ticks);
+        setComboTicks(clahe);
+    </script>
 </body>
 </html>

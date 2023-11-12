@@ -74,20 +74,20 @@
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <script>
-        function addValidMask(patch_id, mask_id) {
-            fetch('/add_valid_mask/' + patch_id + '/' + mask_id, {
-                method: 'POST'
-            })
-            .then(response => {
+        async function addValidMask(patch_id, mask_id) {
+            try {
+                const response = await fetch(
+                    '/add_valid_mask/' + patch_id + '/' + mask_id,
+                    {method: 'POST'}
+                );
                 if (response.ok) {
                     console.log('Image ID added successfully.');
                 } else {
                     console.error('Failed to add Image ID.');
                 }
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('Error:', error);
-            });
+            }
         }
 
         function OpenPatch(patch_id) {
@@ -99,12 +99,14 @@
         }
 
         function PopUpState(patch_id) {
-            window.open(
+            new_window = window.open(
                 '/image/state/' + patch_id,
-                '',
+                'patch_state',
                 "width=450, height=512, bottom=0, left=200"
             );
-            
+            if (window.focus) {
+                new_window.focus();
+            }
         }
     </script>
 </body>

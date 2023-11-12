@@ -63,3 +63,15 @@ body {
     border-radius: 5px;
     cursor: pointer;
 }
+
+#checkboxes label {
+    float: left;
+    text-align: center;
+    size: 20px;
+
+}
+#checkboxes ul {
+    margin: 0;
+    list-style: none;
+    float: left;
+}

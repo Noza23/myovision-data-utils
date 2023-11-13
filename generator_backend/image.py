@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import io
-from typing import Union
+from typing import Union, Any
 from .utils import (
     split_image_into_patches,
     enhance_contrast_bgr,
@@ -11,6 +11,9 @@ from .utils import (
     preprocess_image
 )
 from segment_anything import SamAutomaticMaskGenerator
+from segment_anything.utils.amg import mask_to_rle_pytorch
+# Make batch-size 100
+
 from . import state
 
 class Image:
@@ -34,6 +37,7 @@ class Image:
         self.image_preprocessed: Union[np.ndarray, None] = None
         self.grid: Union[tuple[int, int], None] = None
         self.patches: Union[list[np.ndarray], None] = None
+        self.patch_sizes: Union[list[tuple[int, int]], None] = None
         self.valid_instances: Union[dict[list[int]], None] = None
 
         self.image = decode_image(image_stream)
@@ -59,6 +63,7 @@ class Image:
             (self.patch_width, self.patch_height)
         )
         self.valid_instances = {i: [] for i in range(len(self.patches))}
+        self.patch_sizes = [patch.shape[:2] for patch in self.patches]
         
         print("Number of patches: ", len(self.patches))
         self.masks = [self.generate_masks(patch) for patch in self.patches]   
@@ -115,13 +120,40 @@ class Image:
 
         for mask_id in self.valid_instances[patch_id]:
             valid_instances_lst.append(
-                self.masks[patch_id][mask_id] * self.current_mask_value
+                self.masks[patch_id][mask_id] * (self.current_mask_value / 255)
             )
             self.current_mask_value += 1
         if len(valid_instances_lst) == 0:
             return np.zeros(self.masks[patch_id][0].shape, dtype=np.uint8)
+        
         valid_mask = np.sum(valid_instances_lst, axis=0, dtype=np.uint16)
         return valid_mask
+
+    def rle_encode_masks(self, patch_id: int) -> list[dict[str, Any]]:
+        # map patch masks back to original image
+        
+        full_image_masks = np.zeros(
+            (len(self.valid_instances[patch_id]), *self.image.shape[:2]),
+            dtype=np.uint8
+        )
+        row = patch_id // self.grid[1] # floor of patch_id / grid_width
+        col = patch_id % self.grid[1] # remainder of patch_id / grid_width
+        
+        # find position of patch in original image
+        x = sum(self.patch_sizes[row * self.grid[1] + c][1] for c in range(col))
+        y = sum(self.patch_sizes[r * self.grid[1]][0] for r in range(row))
+
+        for i, mask_id in enumerate(self.valid_instances[patch_id]):
+            full_image_masks[i][
+                y:y + self.patch_sizes[patch_id][0],
+                x:x + self.patch_sizes[patch_id][1]
+            ] = self.masks[patch_id][mask_id] / 255
+
+        # encode masks
+        encoded_masks = mask_to_rle_pytorch(
+            torch.from_numpy(full_image_masks).to(device=state.MODEL.device),
+        )
+        return encoded_masks
 
 def set_image(
     image_stream: io.BytesIO,

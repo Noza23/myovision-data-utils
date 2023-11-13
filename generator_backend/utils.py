@@ -1,12 +1,13 @@
 import numpy as np
 import cv2
 import base64, io
-
+from typing import Any
+import json
 
 def split_image_into_patches(
-        image: np.ndarray,
-        patch_size: tuple[int ,int]
-    ) -> tuple[tuple[int, int], list[np.ndarray]]:
+    image: np.ndarray,
+    patch_size: tuple[int ,int]
+) -> tuple[tuple[int, int], list[np.ndarray]]:
     """Split an image into patches of a given size."""
     height, width = image.shape[:2]
     patch_height, patch_width = patch_size
@@ -156,6 +157,8 @@ def add_masks(
     return masked_patch
 
 def save_mask_to_path(mask: np.ndarray, path: str) -> None:
-
-    np.save(path + ".npy", mask)
+    # np.save(path + ".npy", mask)
     cv2.imwrite(path + ".png", mask)
+
+def save_rle_masks(rle_masks: list[str, Any], path: str) -> None:
+    json.dump(rle_masks, open(path + ".json", "w"))

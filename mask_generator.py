@@ -7,7 +7,8 @@ from generator_backend.utils import (
     encode_image,
     reconstruct_mask_from_patches,
     add_masks,
-    save_mask_to_path
+    save_mask_to_path,
+    save_rle_masks
 )
 from generator_backend.model import set_model
 from generator_backend.image import set_image
@@ -155,19 +156,20 @@ def save_mask():
     mask = reconstruct_mask_from_patches(valid_masks, state.IMAGE.grid)
     # save mask
     fn = state.IMAGE.image_name.split(".")[0] + "_mask"
+    rle_encoded_masks = []
+    for patch_id in range(len(state.IMAGE.patches)):
+        rle_encoded_masks.extend(
+            state.IMAGE.rle_encode_masks(patch_id)
+        )
     _ = save_mask_to_path(mask, path=f"./result/{fn}")
-    return {"status": f"Mask saved successfully at ./result/{fn}"}
+    _ = save_rle_masks(rle_encoded_masks, path=f"./result/{fn}")
+    return {"status": f"Mask saved successfully at ./result/{fn}.*"}
 
 
 @app.get("/image/state/{patch_id}")
 def show_state(request: Request, patch_id: int):
     # Displays All masks on the left and the valid masks on the right
     if state.IMAGE:
-        # display all masks
-        # masked_image = add_masks(
-        #     state.IMAGE.patches[patch_id],
-        #     state.IMAGE.masks[patch_id]
-        # )
         valids = state.IMAGE.valid_instances[patch_id]
         # display all validated masks
         current_state = add_masks(

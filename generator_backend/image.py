@@ -159,14 +159,15 @@ class Image:
         inds = np.arange(len(full_image_masks))
         batches = np.array_split(inds, batch_size)
         for batch in batches:
-            encoded_batch = mask_to_rle_pytorch(
-                torch.from_numpy(
-                    full_image_masks[batch]
-                ).to(device=state.MODEL.device)
-            )
-            encoded_masks.extend(encoded_batch)
-            torch.cuda.empty_cache()
-            gc.collect()
+            if len(batch) != 0:
+                encoded_batch = mask_to_rle_pytorch(
+                    torch.from_numpy(
+                        full_image_masks[batch]
+                    ).to(device=state.MODEL.device)
+                )
+                encoded_masks.extend(encoded_batch)
+                torch.cuda.empty_cache()
+                gc.collect()
         return encoded_masks
 
 def set_image(

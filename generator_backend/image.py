@@ -1,5 +1,5 @@
 import numpy as np
-import torch
+import torch, gc
 import io
 from typing import Union, Any
 from .utils import (
@@ -131,6 +131,8 @@ class Image:
 
     def rle_encode_masks(self, patch_id: int) -> list[dict[str, Any]]:
         # map patch masks back to original image
+        if len(self.valid_instances[patch_id]) == 0:
+            return []
         
         full_image_masks = np.zeros(
             (len(self.valid_instances[patch_id]), *self.image.shape[:2]),
@@ -138,7 +140,7 @@ class Image:
         )
         row = patch_id // self.grid[1] # floor of patch_id / grid_width
         col = patch_id % self.grid[1] # remainder of patch_id / grid_width
-        
+
         # find position of patch in original image
         x = sum(self.patch_sizes[row * self.grid[1] + c][1] for c in range(col))
         y = sum(self.patch_sizes[r * self.grid[1]][0] for r in range(row))
@@ -150,9 +152,21 @@ class Image:
             ] = self.masks[patch_id][mask_id] / 255
 
         # encode masks
-        encoded_masks = mask_to_rle_pytorch(
-            torch.from_numpy(full_image_masks).to(device=state.MODEL.device),
-        )
+        # https://github.com/pytorch/pytorch/issues/51871
+        # Do batchwise encoding instead of encoding all masks at once to avoid OOM
+        encoded_masks = []
+        batch_size = 10
+        inds = np.arange(len(full_image_masks))
+        batches = np.array_split(inds, batch_size)
+        for batch in batches:
+            encoded_batch = mask_to_rle_pytorch(
+                torch.from_numpy(
+                    full_image_masks[batch]
+                ).to(device=state.MODEL.device)
+            )
+            encoded_masks.extend(encoded_batch)
+            torch.cuda.empty_cache()
+            gc.collect()
         return encoded_masks
 
 def set_image(

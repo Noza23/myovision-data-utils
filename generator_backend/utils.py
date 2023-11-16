@@ -160,5 +160,5 @@ def save_mask_to_path(mask: np.ndarray, path: str) -> None:
     # np.save(path + ".npy", mask)
     cv2.imwrite(path + ".png", mask)
 
-def save_rle_masks(rle_masks: list[str, Any], path: str) -> None:
+def save_rle_masks(rle_masks: list[dict[str, Any]], path: str) -> None:
     json.dump(rle_masks, open(path + ".json", "w"))

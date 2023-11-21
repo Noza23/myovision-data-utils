@@ -15,7 +15,6 @@ model/*.pth
 # data directory
 data/
 checkpoint/
-gui.py
 todo.txt
 
 

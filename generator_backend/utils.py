@@ -74,7 +74,7 @@ def enhance_contrast_bgr(image: np.ndarray) -> np.ndarray:
 def gamma_correction(image: np.ndarray, gamma: float) -> np.ndarray:
     lookUpTable = np.empty((1,256), np.uint8)
     for i in range(256):
-            lookUpTable[0,i] = np.clip(pow(i / 255.0, gamma) * 255.0, 0, 255)
+        lookUpTable[0,i] = np.clip(pow(i / 255.0, gamma) * 255.0, 0, 255)
     res = cv2.LUT(image, lookUpTable)
     return res
 
@@ -157,8 +157,19 @@ def add_masks(
     return masked_patch
 
 def save_mask_to_path(mask: np.ndarray, path: str) -> None:
-    # np.save(path + ".npy", mask)
     cv2.imwrite(path + ".png", mask)
 
 def save_rle_masks(rle_masks: list[dict[str, Any]], path: str) -> None:
     json.dump(rle_masks, open(path + ".json", "w"))
+
+def save_image(image: np.ndarray, path: str) -> None:
+    cv2.imwrite(path, image)
+
+def save_annotations(annotations: dict[str, Any], path: str) -> None:
+    json.dump(annotations, open(path, "w"))
+
+def read_image(path: str) -> np.ndarray:
+    return cv2.imread(path)
+
+def read_masks(path: str) -> list[dict[str, Any]]:
+    return json.load(open(path, "r"))

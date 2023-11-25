@@ -1,15 +1,219 @@
 import numpy as np
 from segment_anything.utils.amg import rle_to_mask, mask_to_rle_pytorch
 import torch
-from typing import Any
+from torchvision import transforms
+from typing import Any, Union, Tuple, List
 import gc
 from .utils import (
     split_image_into_patches,
     save_image,
     save_annotations
 )
+from PIL import Image
+from functools import partial
 
-# Augmentation not implemented yet
+def add_color_jitter(img: Union[np.ndarray, Image.Image, torch.Tensor], masks: List[np.ndarray], brightness: float = 1, contrast: float = 1, saturation: float = 1, hue: float = 0.5) -> Tuple[torch.Tensor, List[np.ndarray]]:
+    """
+    Apply color jitter transformation to the input image.
+
+    Parameters:
+        img (Union[np.ndarray, Image.Image, torch.Tensor]): Input image.
+        masks (List[np.ndarray]): List of input masks. Masks are not manipulated and returned as inputted.
+        brightness (float): Brightness factor for color jitter. Default is 1.
+        contrast (float): Contrast factor for color jitter. Default is 1.
+        saturation (float): Saturation factor for color jitter. Default is 1.
+        hue (float): Hue factor for color jitter. Default is 0.5.
+
+    Returns:
+        Tuple[torch.Tensor, List[np.ndarray]]: Transformed image and list of masks.
+    """
+    cj = transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
+
+    if isinstance(img, np.ndarray):
+        if (img.shape[0] == 3) or (img.shape[0] == 1):
+            return cj(torch.from_numpy(img)).permute(1, 2, 0), masks
+        elif (img.shape[-1] == 3) or (img.shape[-1] == 1):
+            return cj(torch.from_numpy(np.moveaxis(img, -1, 0))).permute(1, 2, 0), masks
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+    elif isinstance(img, Image.Image):
+        return cj(img), masks
+    elif isinstance(img, torch.Tensor):
+        if (img.shape[0] == 3) or (img.shape[0] == 1):
+            return cj(img).permute(1, 2, 0), masks
+        elif (img.shape[-1] == 3) or (img.shape[-1] == 1):
+            return cj(img.permute(2, 0, 1)).permute(1, 2, 0), masks
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+    else:
+        raise TypeError(f"Unsupported input type {type(img)}")
+
+def add_white_noise(img: Union[np.ndarray, Image.Image, torch.Tensor], masks: List[np.ndarray], sigma: float = 10) -> Tuple[torch.Tensor, List[np.ndarray]]:
+    """
+    Add white noise to the input image.
+
+    Parameters:
+        img (Union[np.ndarray, Image.Image, torch.Tensor]): Input image.
+        masks (List[np.ndarray]): List of input masks. Masks are not manipulated and returned as inputted.
+        sigma (float): Standard deviation of the noise. Default is 10.
+
+    Returns:
+        Tuple[torch.Tensor, List[np.ndarray]]: Image with added noise and list of masks.
+    """
+    def add_noise(image, scale=sigma):
+        return np.clip(image + np.random.normal(scale=scale, size=image.shape), 0, 255).astype(np.uint8)
+
+    if isinstance(img, np.ndarray):
+        img = add_noise(img)
+        if (img.shape[0] == 3) or (img.shape[0] == 1):
+            return torch.from_numpy(img).permute(1, 2, 0), masks
+        elif (img.shape[-1] == 3) or (img.shape[-1] == 1):
+            return torch.from_numpy(img), masks
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+    elif isinstance(img, Image.Image):
+        return torch.from_numpy(add_noise(np.array(img))), masks
+    elif isinstance(img, torch.Tensor):
+        return torch.from_numpy(add_noise(np.array(img))), masks
+    else:
+        raise TypeError(f"Unsupported input type {type(img)}")
+
+def add_blur(img: Union[np.ndarray, Image.Image, torch.Tensor], masks: List[np.ndarray], kernel_size: int = 21, sigma: float = 7) -> Tuple[torch.Tensor, List[np.ndarray]]:
+    """
+    Apply Gaussian blur to the input image.
+
+    Parameters:
+        img (Union[np.ndarray, Image.Image, torch.Tensor]): Input image.
+        masks (List[np.ndarray]): List of input masks. Masks are not manipulated and returned as inputted.
+        kernel_size (int): Size of the Gaussian kernel. Default is 21.
+        sigma (float): Standard deviation of the Gaussian kernel. Default is 7.
+
+    Returns:
+        Tuple[torch.Tensor, List[np.ndarray]]: Blurred image and list of masks.
+    """
+    trafo = partial(transforms.functional.gaussian_blur, kernel_size=kernel_size, sigma=sigma)
+
+    if isinstance(img, np.ndarray):
+        if (img.shape[0] == 3) or (img.shape[0] == 1):
+            return trafo(torch.from_numpy(img)).permute(1, 2, 0), masks
+        elif (img.shape[-1] == 3) or (img.shape[-1] == 1):
+            return trafo(torch.from_numpy(np.moveaxis(img, -1, 0))).permute(1, 2, 0), masks
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+    elif isinstance(img, Image.Image):
+        return trafo(img), masks
+    elif isinstance(img, torch.Tensor):
+        if (img.shape[0] == 3) or (img.shape[0] == 1):
+            return trafo(img).permute(1, 2, 0), masks
+        elif (img.shape[-1] == 3) or (img.shape[-1] == 1):
+            return trafo(img.permute(2, 0, 1)).permute(1, 2, 0), masks
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+    else:
+        raise TypeError(f"Unsupported input type {type(img)}")
+
+def flip_image_vertically(img: Union[np.ndarray, Image.Image, torch.Tensor], masks: List[np.ndarray]) -> Tuple[torch.Tensor, List[np.ndarray]]:
+    """
+    Flip the input image vertically.
+
+    Parameters:
+        img (Union[np.ndarray, Image.Image, torch.Tensor]): Input image.
+        masks (List[np.ndarray]): List of input masks.
+
+    Returns:
+        Tuple[torch.Tensor, List[np.ndarray]]: Vertically flipped image and list of flipped masks.
+    """
+    flip = transforms.RandomVerticalFlip(p=1.0)
+    masks_transformed = [flip(torch.from_numpy(mask).unsqueeze(dim=0)).squeeze(0) for mask in masks]
+    
+    if isinstance(img, np.ndarray):
+        if (img.shape[0] == 3) or (img.shape[0] == 1):
+            return flip(torch.from_numpy(img)).permute(1, 2, 0), masks_transformed
+        elif (img.shape[-1] == 3) or (img.shape[-1] == 1):
+            return flip(torch.from_numpy(np.moveaxis(img, -1, 0))).permute(1, 2, 0), masks_transformed
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+    elif isinstance(img, Image.Image):
+        return flip(img), masks_transformed
+    elif isinstance(img, torch.Tensor):
+        if (img.shape[0] == 3) or (img.shape[0] == 1):
+            return flip(img).permute(1, 2, 0), masks_transformed
+        elif (img.shape[-1] == 3) or (img.shape[-1] == 1):
+            return flip(img.permute(2, 0, 1)).permute(1, 2, 0), masks_transformed
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+    else:
+        raise TypeError(f"Unsupported input type {type(img)}")
+
+def flip_image_horizontally(img: Union[np.ndarray, Image.Image, torch.Tensor], masks: List[np.ndarray]) -> Tuple[torch.Tensor, List[np.ndarray]]:
+    """
+    Flip the input image horizontally.
+
+    Parameters:
+        img (Union[np.ndarray, Image.Image, torch.Tensor]): Input image.
+        masks (List[np.ndarray]): List of input masks.
+
+    Returns:
+        Tuple[torch.Tensor, List[np.ndarray]]: Horizontally flipped image and list of flipped masks.
+    """
+    flip = transforms.RandomHorizontalFlip(p=1.0)
+    masks_transformed = [flip(torch.from_numpy(mask).unsqueeze(dim=0)).squeeze(0) for mask in masks]
+    
+    if isinstance(img, np.ndarray):
+        if (img.shape[0] == 3) or (img.shape[0] == 1):
+            return flip(torch.from_numpy(img)).permute(1, 2, 0), masks_transformed
+        elif (img.shape[-1] == 3) or (img.shape[-1] == 1):
+            return flip(torch.from_numpy(np.moveaxis(img, -1, 0))).permute(1, 2, 0), masks_transformed
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+    elif isinstance(img, Image.Image):
+        return flip(img), masks_transformed
+    elif isinstance(img, torch.Tensor):
+        if (img.shape[0] == 3) or (img.shape[0] == 1):
+            return flip(img).permute(1, 2, 0), masks_transformed
+        elif (img.shape[-1] == 3) or (img.shape[-1] == 1):
+            return flip(img.permute(2, 0, 1)).permute(1, 2, 0), masks_transformed
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+    else:
+        raise TypeError(f"Unsupported input type {type(img)}")
+
+def random_rotation(img: Union[np.ndarray, Image.Image, torch.Tensor], masks: List[np.ndarray]) -> Tuple[torch.Tensor, List[np.ndarray]]:
+    """
+    Apply a random rotation (in the interval [-45°, 45°]) to the input image.
+
+    Parameters:
+        img (Union[np.ndarray, Image.Image, torch.Tensor]): Input image.
+        masks (List[np.ndarray]): List of input masks.
+
+    Returns:
+        Tuple[torch.Tensor, List[np.ndarray]]: Rotated image and list of rotated masks.
+    """
+    rot_angle = 45
+    rot_angle = np.random.uniform(-rot_angle, rot_angle)
+    rotation = partial(transforms.functional.rotate, angle=rot_angle)
+    masks_transformed = [rotation(torch.from_numpy(mask).unsqueeze(dim=0)).squeeze(0) for mask in masks]
+    
+    if isinstance(img, np.ndarray):
+        if (img.shape[0] == 3) or (img.shape[0] == 1):
+            return rotation(torch.from_numpy(img)).permute(1, 2, 0), masks_transformed
+        elif (img.shape[-1] == 3) or (img.shape[-1] == 1):
+            return rotation(torch.from_numpy(np.moveaxis(img, -1, 0))).permute(1, 2, 0), masks_transformed
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+    elif isinstance(img, Image.Image):
+        return rotation(img), masks_transformed
+    elif isinstance(img, torch.Tensor):
+        if (img.shape[0] == 3) or (img.shape[0] == 1):
+            return rotation(img).permute(1, 2, 0), masks_transformed
+        elif (img.shape[-1] == 3) or (img.shape[-1] == 1):
+            return rotation(img.permute(2, 0, 1)).permute(1, 2, 0), masks_transformed
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+    else:
+        raise TypeError(f"Unsupported input type {type(img)}")
+
+
 
 def generate_training_data(
     image: np.ndarray,

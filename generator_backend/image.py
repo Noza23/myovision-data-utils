@@ -12,8 +12,6 @@ from .utils import (
 )
 from segment_anything import SamAutomaticMaskGenerator
 from segment_anything.utils.amg import mask_to_rle_pytorch
-# Make batch-size 100
-
 from . import state
 
 class Image:
@@ -156,8 +154,10 @@ class Image:
         # Do batchwise encoding instead of encoding all masks at once to avoid OOM
         encoded_masks = []
         batch_size = 10
-        inds = np.arange(len(full_image_masks))
-        batches = np.array_split(inds, batch_size)
+        batches = np.array_split(
+            np.arange(len(full_image_masks)),
+            int(len(full_image_masks) / batch_size) + 1
+        )
         for batch in batches:
             if len(batch) != 0:
                 encoded_batch = mask_to_rle_pytorch(

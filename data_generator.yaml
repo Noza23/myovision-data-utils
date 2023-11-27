@@ -1,0 +1,51 @@
+config:
+  data_dir: /Users/giorginozadze/Desktop/data_in 
+  patch_size: 1500
+  device: cpu
+  saving_path: /Users/giorginozadze/Desktop/data_out
+
+augmentation:
+  ColorJitter:
+    brightness: 0.5
+    contrast: 0.5
+    saturation: 0.5
+    hue: 0.5
+
+  GaussianNoise:
+    mean: 1
+    std: 2
+
+  GaussianBlur:
+    kernel_size: 9
+    sigma: [1, 5]
+
+  RandomRotation:
+    degrees: 45 # [-degrees, +degrees]
+
+  Invert:
+    p: True
+
+  VerticalFlip:
+    p: True
+
+  HorizontalFlip:
+    p: True
+
+  extra:
+    n_ColorJitter: 5
+    n_GaussianNoise: 2
+    n_GaussianBlur: 1
+    n_RandomRotation: 5
+    manual_seed: 42
+
+defaults:
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+hydra:
+  run:
+    dir: ./
+
+
+
+  

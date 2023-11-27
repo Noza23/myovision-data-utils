@@ -8,20 +8,21 @@ from .utils import (
     save_image,
     save_annotations
 )
-
-# Augmentation not implemented yet
+from .augmenter import Augmenter
 
 def generate_training_data(
+    aug_cfg: dict,
     image: np.ndarray,
     rle_masks: list[dict],
     patch_size: tuple[int, int],
-    original_image_name: str,
+    image_name: str,
     saving_path: str,
     device: str="cpu"
 ) -> None:
     """Generate training data from original image and rle masks.
 
     Args:
+        aug_cfg (DictConfig): Augmentation configuration .yaml file.
         image (np.ndarray): Image to generate training data from.
         rle_masks (list[dict]): rle masks corresponding to image.
         patch_size (tuple[int, int]): Size of patches to split image into.
@@ -29,39 +30,48 @@ def generate_training_data(
         saving_path (str): Path to save training data to.
         device (str): Device to use.
     """
+    augmenter = Augmenter(aug_cfg)
+    batch_size = 100
     grid, patches = split_image_into_patches(image, patch_size)
     for i, patch in enumerate(patches):
-        encoded_masks: list[dict[str, Any]] = []
         masks = get_masks_in_patch(rle_masks, patch_size, grid, i)
-        batch_size = 10
-        inds = np.arange(len(masks))
-        batches = np.array_split(inds, batch_size)
-        for batch in batches:
-            if len(batch) != 0:
-                encoded_batch = mask_to_rle_pytorch(
-                    torch.from_numpy(np.stack(masks)[batch]).to(device=device)
-                )
-                encoded_masks.extend(encoded_batch)
+        print(f"Augmenting patch {i}...")
+        image_aug, masks_aug, tech = augmenter(
+            torch.from_numpy(patch).permute(2, 0, 1).unsqueeze(0).to(device),
+            torch.from_numpy(np.stack(masks)).unsqueeze(1).to(device),
+            extra=aug_cfg["extra"]
+        )
+        for j, (img, msk, t) in enumerate(zip(image_aug, masks_aug, tech)):
+            # img: HxWx3, msk: NxHxW
+            encoded_masks: list[dict[str, Any]] = []
+            batches = np.array_split(
+                np.arange(len(msk)), int(len(msk) / batch_size) + 1
+            )
+            for b in batches:
+                if len(b) != 0:
+                    b = torch.from_numpy(b).to(device)
+                    encoded_batch = mask_to_rle_pytorch(msk[b])
+                    encoded_masks.extend(encoded_batch)
                 if device != "cpu":
                     torch.cuda.empty_cache()
                 gc.collect()
-        sa_data = {
-            "patch": {
-                "patch_id": i,
-                "height": patch.shape[0],
-                "width": patch.shape[1],
-                "augmentation": "None",
-                "file_name_patch": f"{original_image_name}_{i}.png",
-                "file_name_image": f"{original_image_name}.tif",
-            },
-            "annotations": encoded_masks
-        }
-        # Save patch
-        save_image(patch, f"{saving_path}/{original_image_name}_{i}.png")
-        # Save annotations
-        save_annotations(
-            sa_data, f"{saving_path}/{original_image_name}_{i}.json"
-        )
+            sa_data = {
+                "patch": {
+                    "patch_id": i,
+                    "height": patch.shape[0],
+                    "width": patch.shape[1],
+                    "augmentation": t,
+                    "file_name_patch": f"{image_name}_{i}_{j}.png",
+                    "file_name_image": f"{image_name}.tif",
+                },
+                "annotations": encoded_masks
+            }
+            save_image(
+                img.cpu().numpy(), f"{saving_path}/{image_name}_{i}_{j}.png"
+            )
+            save_annotations(
+                sa_data, f"{saving_path}/{image_name}_{i}_{j}.json"
+            )
 
 def get_masks_in_patch(
     rle_masks: list[dict],
@@ -90,7 +100,4 @@ def get_masks_in_patch(
         for mask in masks_decoded
         if mask[y_start:y_end, x_start:x_end].sum() > 0
     ]
-    return res
-
-
-    
+    return res    

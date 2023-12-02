@@ -3,7 +3,7 @@ from segment_anything.utils.amg import rle_to_mask, mask_to_rle_pytorch
 import torch
 from typing import Any
 import gc
-from .utils import (
+from ..utils import (
     split_image_into_patches,
     save_image,
     save_annotations

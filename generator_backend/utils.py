@@ -1,8 +1,7 @@
 import numpy as np
 import cv2
-import base64, io
+import base64, io, json
 from typing import Any
-import json
 
 def split_image_into_patches(
     image: np.ndarray,
@@ -96,6 +95,13 @@ def convert_to_hsl(image: np.ndarray) -> np.ndarray:
     """Convert image to HSL color space."""
     return cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
 
+def invert_image(image: np.ndarray) -> np.ndarray:
+    """Invert an BGR image."""
+    return cv2.cvtColor(
+        255 - cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),
+        cv2.COLOR_GRAY2BGR
+    )
+
 def preprocess_image(
     image: np.ndarray,
     hsl_space: np.ndarray,
@@ -165,7 +171,7 @@ def save_rle_masks(rle_masks: list[dict[str, Any]], path: str) -> None:
 def save_image(image: np.ndarray, path: str) -> None:
     cv2.imwrite(path, image)
 
-def save_annotations(annotations: dict[str, Any], path: str) -> None:
+def save_annotations(annotations: list[dict[str, Any]], path: str) -> None:
     json.dump(annotations, open(path, "w"))
 
 def read_image(path: str) -> np.ndarray:

@@ -51,6 +51,9 @@ def generate_training_data(
                 if len(b) != 0:
                     b = torch.from_numpy(b).to(device)
                     encoded_batch = mask_to_rle_pytorch(msk[b])
+                    encoded_batch = [
+                        m for m in encoded_batch if len(m["counts"]) > 1
+                    ]
                     encoded_masks.extend(encoded_batch)
                 if device != "cpu":
                     torch.cuda.empty_cache()

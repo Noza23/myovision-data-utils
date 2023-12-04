@@ -35,30 +35,40 @@ def overlay_masks_on_image(
     patch_size: tuple[int, int]=(1500, 1500)
 ) -> np.ndarray:
     # One by one, since memory cannot handle below code
-    colored_masks = np.empty_like(image)
-    for i, mask in enumerate(masks):
-        print("Overlaying mask: ", i)
-        colored_masks[mask] = np.random.randint(0, 255, 3)
+    # colored_masks = np.empty_like(image)
+    # for i, mask in enumerate(masks):
+    #     print("Overlaying mask: ", i)
+    #     colored_masks[mask] = np.random.randint(0, 255, 3)
+    # overlayed_image = cv2.addWeighted(image, 1, colored_masks, beta, 0)
+    
     # Memory cannot handle this
     # colored_masks: np.ndarray = np.sum(
     #     np.stack(masks)[:,:,:,None] * colors[:, None, None],
     #     axis=0,
     #     dtype=np.uint8
     # )
-    overlayed_image = cv2.addWeighted(image, 1, colored_masks, beta, 0)
+    
     # annotate
     print("Annotating...")
     for index, mask in enumerate(masks):
+        rand_col = np.random.randint(0, 255, 3)
+        conts, _ = cv2.findContours(
+            mask.astype(np.uint8),
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE
+        )
+        cv2.drawContours(image, conts, -1, rand_col.tolist(), 2)
         coords = np.mean(np.where(mask > 0), axis=1, dtype=np.int32)
-        print("Drawing index: ", index, " at coords: ", coords)
-        _ = annotate_image(overlayed_image, str(index), tuple(coords)[::-1])
+        print("Drawing Contours and indices: ", index)
+        #print("Drawing index: ", index, " at coords: ", coords)
+        _ = annotate_image(image, str(index), tuple(coords)[::-1])
 
     print("Drawing gridlines...")
     grid = get_grid(image, patch_size)
     boarders_horizontal = [i * patch_size[0] for i in range(1, grid[0])]
     boarders_vertical = [i * patch_size[1] for i in range(1, grid[1])]
     draw_gridlines(image, boarders_horizontal, boarders_vertical)
-    return overlayed_image
+    return image
 
 def get_grid(
     image: np.ndarray, patch_size: tuple[int, int]

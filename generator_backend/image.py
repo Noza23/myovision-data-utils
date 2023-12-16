@@ -8,10 +8,10 @@ from .utils import (
     gamma_correction,
     decode_image,
     convert_to_hsl,
-    preprocess_image
+    preprocess_image,
+    mask_to_rle
 )
 from segment_anything import SamAutomaticMaskGenerator
-from segment_anything.utils.amg import mask_to_rle_pytorch
 from . import state
 
 class Image:
@@ -152,22 +152,11 @@ class Image:
         # encode masks
         # https://github.com/pytorch/pytorch/issues/51871
         # Do batchwise encoding instead of encoding all masks at once to avoid OOM
-        encoded_masks = []
-        batch_size = 10
-        batches = np.array_split(
-            np.arange(len(full_image_masks)),
-            int(len(full_image_masks) / batch_size) + 1
+        encoded_masks = mask_to_rle(
+            full_image_masks, batch_size=10, device=state.MODEL.device
         )
-        for batch in batches:
-            if len(batch) != 0:
-                encoded_batch = mask_to_rle_pytorch(
-                    torch.from_numpy(
-                        full_image_masks[batch]
-                    ).to(device=state.MODEL.device)
-                )
-                encoded_masks.extend(encoded_batch)
-                torch.cuda.empty_cache()
-                gc.collect()
+        if state.MODEL.device != "cpu": torch.cuda.empty_cache()
+        gc.collect()
         return encoded_masks
 
 def set_image(

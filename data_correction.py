@@ -10,7 +10,6 @@ from segment_anything.utils.amg import rle_to_mask
 if __name__ == "__main__":
     import argparse, os
     parser = argparse.ArgumentParser("Visualize masks")
-    parser.add_argument
     parser.add_argument("-i", "--image", type=str, help="Path to the image")
     parser.add_argument("-m", "--masks", type=str, help="Path to the masks")
     parser.add_argument("--delete", nargs="*", default=[], help="del by ids")

@@ -1,14 +1,15 @@
 import numpy as np
-from segment_anything.utils.amg import rle_to_mask, mask_to_rle_pytorch
+from segment_anything.utils.amg import rle_to_mask
 import torch
-from typing import Any
 import gc
 from ..utils import (
     split_image_into_patches,
     save_image,
-    save_annotations
+    save_annotations,
+    mask_to_rle
 )
 from .augmenter import Augmenter
+import sys
 
 def generate_training_data(
     aug_cfg: dict,
@@ -31,11 +32,12 @@ def generate_training_data(
         device (str): Device to use.
     """
     augmenter = Augmenter(aug_cfg)
-    batch_size = 100
     grid, patches = split_image_into_patches(image, patch_size)
     for i, patch in enumerate(patches):
         masks = get_masks_in_patch(rle_masks, patch_size, grid, i)
+        if not masks: continue
         print(f"Augmenting patch {i}...")
+        sys.stdout.flush()
         image_aug, masks_aug, tech = augmenter(
             torch.from_numpy(patch).permute(2, 0, 1).unsqueeze(0).to(device),
             torch.from_numpy(np.stack(masks)).unsqueeze(1).to(device),
@@ -43,21 +45,9 @@ def generate_training_data(
         )
         for j, (img, msk, t) in enumerate(zip(image_aug, masks_aug, tech)):
             # img: HxWx3, msk: NxHxW
-            encoded_masks: list[dict[str, Any]] = []
-            batches = np.array_split(
-                np.arange(len(msk)), int(len(msk) / batch_size) + 1
-            )
-            for b in batches:
-                if len(b) != 0:
-                    b = torch.from_numpy(b).to(device)
-                    encoded_batch = mask_to_rle_pytorch(msk[b])
-                    encoded_batch = [
-                        m for m in encoded_batch if len(m["counts"]) > 1
-                    ]
-                    encoded_masks.extend(encoded_batch)
-                if device != "cpu":
-                    torch.cuda.empty_cache()
-                gc.collect()
+            encoded_masks = mask_to_rle(msk, batch_size=100, device=device)
+            if device != "cpu": torch.cuda.empty_cache()
+            gc.collect()
             sa_data = {
                 "patch": {
                     "patch_id": i,

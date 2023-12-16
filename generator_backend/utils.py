@@ -1,7 +1,9 @@
 import numpy as np
+import torch
+from segment_anything.utils.amg import mask_to_rle_pytorch
 import cv2
 import base64, io, json
-from typing import Any
+from typing import Any, Union
 
 def split_image_into_patches(
     image: np.ndarray,
@@ -162,10 +164,32 @@ def add_masks(
         masked_patch[mask > 0] = rand_color
     return masked_patch
 
+def mask_to_rle(
+    array: Union[np.ndarray, torch.Tensor],
+    batch_size: int, 
+    device: str="cpu"
+) -> list[dict[str, Any]]:
+    """Converts a numpy array to a run-length encoded list of dicts."""
+    encoded_masks: list[dict[str, Any]] = []
+    if isinstance(array, np.ndarray):
+        array = torch.from_numpy(array).to(device)
+    batches = np.array_split(
+        np.arange(len(array)), int(len(array) / batch_size) + 1
+    )
+    for b in batches:
+        if len(b) != 0:
+            b = torch.from_numpy(b).to(device)
+            encoded_batch = mask_to_rle_pytorch(array[b])
+            encoded_batch = [m for m in encoded_batch if len(m["counts"]) > 1]
+            encoded_masks.extend(encoded_batch)
+    return encoded_masks
+
 def save_mask_to_path(mask: np.ndarray, path: str) -> None:
+    path = path.split(".")[0]
     cv2.imwrite(path + ".png", mask)
 
 def save_rle_masks(rle_masks: list[dict[str, Any]], path: str) -> None:
+    path = path.split(".")[0]
     json.dump(rle_masks, open(path + ".json", "w"))
 
 def save_image(image: np.ndarray, path: str) -> None:
@@ -176,6 +200,9 @@ def save_annotations(annotations: list[dict[str, Any]], path: str) -> None:
 
 def read_image(path: str) -> np.ndarray:
     return cv2.imread(path)
+
+def read_image_rgb(path: str) -> np.ndarray:
+    return cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
 
 def read_masks(path: str) -> list[dict[str, Any]]:
     return json.load(open(path, "r"))

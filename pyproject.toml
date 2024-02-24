@@ -9,8 +9,8 @@ version = "0.1.0"
 maintainers = [
   {name = "Giorgi Nozadze", email = "giorginozadze23@yahoo.com"}
 ]
-description = "Data collection utilities for MyoSam project"
-keywords = ["SAM", "Computer Vision", "Instance Segmentation", "Myotube", "Microscopy"]
+description = "Data collection utilities for myovision project"
+keywords = ["SAM", "Computer Vision", "Instance Segmentation", "Myotube", "Microscopy", "MyoVision"]
 readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = {file = ["requirements.txt"]}

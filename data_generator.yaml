@@ -1,8 +1,8 @@
 config:
-  data_dir: /Users/giorginozadze/Desktop/data_in
+  data_dir: ./data_in
   patch_size: 1500
   device: cpu
-  saving_path: /Users/giorginozadze/Desktop/data_out
+  saving_path: ./data_out
 
 augmentation:
   ColorJitter:

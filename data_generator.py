@@ -1,4 +1,4 @@
-from generator_backend.adg.adg import generate_training_data
+from generator_backend.adg import generate_training_data
 from generator_backend.utils import read_image, read_masks
 
 import os

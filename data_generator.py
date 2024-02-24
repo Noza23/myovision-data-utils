@@ -1,4 +1,4 @@
-from generator_backend.adg import generate_training_data
+from generator_backend.adg.adg import generate_training_data
 from generator_backend.utils import read_image, read_masks
 
 import os
@@ -6,6 +6,7 @@ import os
 import torch
 import hydra
 from omegaconf import DictConfig
+
 
 @hydra.main(config_path=".", config_name="data_generator")
 def main(cfg: DictConfig) -> None:
@@ -29,12 +30,13 @@ def main(cfg: DictConfig) -> None:
                 patch_size=(patch_size, patch_size),
                 image_name=image_fn[:-4],
                 saving_path=str(cfg["config"]["saving_path"]),
-                device=cfg["config"]["device"]
+                device=cfg["config"]["device"],
             )
             print(f"Training data successfully generated for {image_fn}.")
         else:
             print(f"Could not find mask for {image_fn}. Skipping...")
             continue
+
 
 if __name__ == "__main__":
     main()

@@ -3,19 +3,21 @@ from torchvision import transforms
 import torchvision.transforms.functional as TF
 from typing import Tuple
 
+
 class AddGaussianNoise:
-    def __init__(self, mean: float=0., std: float=1.):
+    def __init__(self, mean: float = 0.0, std: float = 1.0):
         self.std = std
         self.mean = mean
-        
+
     def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
         device = tensor.device
         mean = torch.tensor(self.mean, device=device)
         std = torch.tensor(self.std, device=device)
         return tensor + torch.randn(tensor.shape).to(device) * std + mean
-    
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(mean={self.mean}, std={self.std})"
+
 
 class Augmenter:
     def __init__(self, config: dict):
@@ -26,7 +28,7 @@ class Augmenter:
         self.add_noise = AddGaussianNoise(**config["GaussianNoise"])
         self.blur = transforms.GaussianBlur(
             config["GaussianBlur"]["kernel_size"],
-            tuple(config["GaussianBlur"]["sigma"])
+            tuple(config["GaussianBlur"]["sigma"]),
         )
         self.rotate = transforms.RandomRotation(**config["RandomRotation"])
         self.invert = transforms.RandomInvert(**config["Invert"])
@@ -36,11 +38,11 @@ class Augmenter:
         )
 
     def __call__(
-        self, image:torch.Tensor, masks:torch.Tensor, extra: dict[str, int]
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, image: torch.Tensor, masks: torch.Tensor, extra: dict[str, int]
+    ) -> Tuple[torch.Tensor, torch.Tensor, list[str]]:
         """
         Apply augmentation to the image and corresponding masks.
-        
+
         Args:
             image (torch.Tensor): Image to be augmented.(1xCxHxW).
             masks (torch.Tensor): Masks to be augmented.(Nx1xHxW).
@@ -50,10 +52,10 @@ class Augmenter:
         Returns:
             Tuple[torch.Tensor, torch.Tensor, list[str]]:
                 Augmented image and corresponding masks.
-                (AxCxHxW), (AxNx1xHxW) respectively and a list 
+                (AxCxHxW), (AxNx1xHxW) respectively and a list
                 of strings containing the augmentation methods
         """
-        aug, masks_aug, tech = [image], [masks], ['']
+        aug, masks_aug, tech = [image], [masks], [""]
         for key, value in extra.items():
             print(key, value)
             if key == "n_ColorJitter":
@@ -88,4 +90,4 @@ class Augmenter:
             tech.append(repr(self.flip_h))
         aug = torch.vstack(aug).permute(0, 2, 3, 1)
         masks_aug = torch.stack(masks_aug).squeeze(2)
-        return aug , masks_aug, tech
+        return aug, masks_aug, tech

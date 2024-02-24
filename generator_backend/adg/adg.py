@@ -1,15 +1,18 @@
-import numpy as np
-from segment_anything.utils.amg import rle_to_mask
-import torch
+import sys
 import gc
+
+import numpy as np
+import torch
+
 from ..utils import (
     split_image_into_patches,
     save_image,
     save_annotations,
-    mask_to_rle
+    mask_to_rle,
+    rle_to_mask,
 )
 from .augmenter import Augmenter
-import sys
+
 
 def generate_training_data(
     aug_cfg: dict,
@@ -18,7 +21,7 @@ def generate_training_data(
     patch_size: tuple[int, int],
     image_name: str,
     saving_path: str,
-    device: str="cpu"
+    device: str = "cpu",
 ) -> None:
     """Generate training data from original image and rle masks.
 
@@ -35,18 +38,20 @@ def generate_training_data(
     grid, patches = split_image_into_patches(image, patch_size)
     for i, patch in enumerate(patches):
         masks = get_masks_in_patch(rle_masks, patch_size, grid, i)
-        if not masks: continue
+        if not masks:
+            continue
         print(f"Augmenting patch {i}...")
         sys.stdout.flush()
-        image_aug, masks_aug, tech = augmenter(
+        image_aug, masks_aug, tech = augmenter.__call__(
             torch.from_numpy(patch).permute(2, 0, 1).unsqueeze(0).to(device),
             torch.from_numpy(np.stack(masks)).unsqueeze(1).to(device),
-            extra=aug_cfg["extra"]
+            extra=aug_cfg["extra"],
         )
         for j, (img, msk, t) in enumerate(zip(image_aug, masks_aug, tech)):
             # img: HxWx3, msk: NxHxW
             encoded_masks = mask_to_rle(msk, batch_size=100, device=device)
-            if device != "cpu": torch.cuda.empty_cache()
+            if device != "cpu":
+                torch.cuda.empty_cache()
             gc.collect()
             sa_data = {
                 "patch": {
@@ -57,7 +62,7 @@ def generate_training_data(
                     "file_name_patch": f"{image_name}_{i}_{j}.png",
                     "file_name_image": f"{image_name}.tif",
                 },
-                "annotations": encoded_masks
+                "annotations": encoded_masks,
             }
             save_image(
                 img.cpu().numpy(), f"{saving_path}/{image_name}_{i}_{j}.png"
@@ -66,11 +71,12 @@ def generate_training_data(
                 sa_data, f"{saving_path}/{image_name}_{i}_{j}.json"
             )
 
+
 def get_masks_in_patch(
     rle_masks: list[dict],
     patch_size: tuple[int, int],
     grid: tuple[int, int],
-    n: int
+    n: int,
 ) -> list[np.ndarray]:
     """From all masks in the image, filters out the masks that are in the
     patch with index n.
@@ -93,4 +99,4 @@ def get_masks_in_patch(
         for mask in masks_decoded
         if mask[y_start:y_end, x_start:x_end].sum() > 0
     ]
-    return res    
+    return res

@@ -209,7 +209,9 @@ def save_image(image: np.ndarray, path: str) -> None:
     cv2.imwrite(path, image)
 
 
-def save_annotations(annotations: list[dict[str, Any]], path: str) -> None:
+def save_annotations(
+    annotations: Union[dict[str, Any], list[dict[str, Any]]], path: str
+) -> None:
     json.dump(annotations, open(path, "w"))
 
 

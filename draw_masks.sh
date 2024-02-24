@@ -1,14 +1,14 @@
 #!/bin/bash
 
 python3 data_correction.py \
-    --image /Users/giorginozadze/Desktop/data_in/20230412_CC_MyDiff_Day8_C2C12_W1_c3.tif \
-    --masks /Users/giorginozadze/Desktop/data_in/20230412_CC_MyDiff_Day8_C2C12_W1_c3_mask_filtered.json \
+    --image /Users/giorginozadze/Desktop/data_in/img.tif \
+    --masks /Users/giorginozadze/Desktop/data_in/masks.json \
     --gamma 0.3 \
     --omit_cluster_values \
     --clahe 1 \
     --invert 1 \
     --delete \
-    --output /Users/giorginozadze/Desktop/filtered/ \
+    --output /Users/giorginozadze/Desktop/data_in/done \
 
 
 
